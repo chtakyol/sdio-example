@@ -1,0 +1,5 @@
+{
+    "makefile.extensionOutputFolder": "./.vscode",
+    "cortex-debug.armToolchainPath": "C:\\TOUCHGFX\\4.17.0\\ENV\\MINGW\\MSYS\\1.0\\GNU-ARM-GCC\\BIN",
+    "cortex-debug.openocdPath": "C:\\OPENOCD-20210729-0.11.0\\BIN\\OPENOCD.EXE"
+}
