@@ -1,0 +1,718 @@
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.eabi_attribute 27, 1
+   3              		.eabi_attribute 28, 1
+   4              		.eabi_attribute 20, 1
+   5              		.eabi_attribute 21, 1
+   6              		.eabi_attribute 23, 3
+   7              		.eabi_attribute 24, 1
+   8              		.eabi_attribute 25, 1
+   9              		.eabi_attribute 26, 1
+  10              		.eabi_attribute 30, 1
+  11              		.eabi_attribute 34, 1
+  12              		.eabi_attribute 18, 4
+  13              		.file	"sd_diskio.c"
+  14              		.text
+  15              	.Ltext0:
+  16              		.cfi_sections	.debug_frame
+  17              		.section	.text.SD_CheckStatus,"ax",%progbits
+  18              		.align	1
+  19              		.syntax unified
+  20              		.thumb
+  21              		.thumb_func
+  22              		.fpu fpv4-sp-d16
+  24              	SD_CheckStatus:
+  25              	.LFB130:
+  26              		.file 1 "FATFS/Target/sd_diskio.c"
+   1:FATFS/Target/sd_diskio.c **** /* USER CODE BEGIN Header */
+   2:FATFS/Target/sd_diskio.c **** /**
+   3:FATFS/Target/sd_diskio.c ****   ******************************************************************************
+   4:FATFS/Target/sd_diskio.c ****   * @file    sd_diskio.c
+   5:FATFS/Target/sd_diskio.c ****   * @brief   SD Disk I/O driver
+   6:FATFS/Target/sd_diskio.c ****   ******************************************************************************
+   7:FATFS/Target/sd_diskio.c ****   * @attention
+   8:FATFS/Target/sd_diskio.c ****   *
+   9:FATFS/Target/sd_diskio.c ****   * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
+  10:FATFS/Target/sd_diskio.c ****   * All rights reserved.</center></h2>
+  11:FATFS/Target/sd_diskio.c ****   *
+  12:FATFS/Target/sd_diskio.c ****   * This software component is licensed by ST under Ultimate Liberty license
+  13:FATFS/Target/sd_diskio.c ****   * SLA0044, the "License"; You may not use this file except in compliance with
+  14:FATFS/Target/sd_diskio.c ****   * the License. You may obtain a copy of the License at:
+  15:FATFS/Target/sd_diskio.c ****   *                             www.st.com/SLA0044
+  16:FATFS/Target/sd_diskio.c ****   *
+  17:FATFS/Target/sd_diskio.c ****   ******************************************************************************
+  18:FATFS/Target/sd_diskio.c ****   */
+  19:FATFS/Target/sd_diskio.c **** /* USER CODE END Header */
+  20:FATFS/Target/sd_diskio.c **** 
+  21:FATFS/Target/sd_diskio.c **** /* Note: code generation based on sd_diskio_template_bspv1.c v2.1.4
+  22:FATFS/Target/sd_diskio.c ****    as "Use dma template" is disabled. */
+  23:FATFS/Target/sd_diskio.c **** 
+  24:FATFS/Target/sd_diskio.c **** /* USER CODE BEGIN firstSection */
+  25:FATFS/Target/sd_diskio.c **** /* can be used to modify / undefine following code or add new definitions */
+  26:FATFS/Target/sd_diskio.c **** /* USER CODE END firstSection*/
+  27:FATFS/Target/sd_diskio.c **** 
+  28:FATFS/Target/sd_diskio.c **** /* Includes ------------------------------------------------------------------*/
+  29:FATFS/Target/sd_diskio.c **** #include "ff_gen_drv.h"
+  30:FATFS/Target/sd_diskio.c **** #include "sd_diskio.h"
+  31:FATFS/Target/sd_diskio.c **** 
+  32:FATFS/Target/sd_diskio.c **** /* Private typedef -----------------------------------------------------------*/
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 2
+
+
+  33:FATFS/Target/sd_diskio.c **** /* Private define ------------------------------------------------------------*/
+  34:FATFS/Target/sd_diskio.c **** /* use the default SD timout as defined in the platform BSP driver*/
+  35:FATFS/Target/sd_diskio.c **** #if defined(SDMMC_DATATIMEOUT)
+  36:FATFS/Target/sd_diskio.c **** #define SD_TIMEOUT SDMMC_DATATIMEOUT
+  37:FATFS/Target/sd_diskio.c **** #elif defined(SD_DATATIMEOUT)
+  38:FATFS/Target/sd_diskio.c **** #define SD_TIMEOUT SD_DATATIMEOUT
+  39:FATFS/Target/sd_diskio.c **** #else
+  40:FATFS/Target/sd_diskio.c **** #define SD_TIMEOUT 30 * 1000
+  41:FATFS/Target/sd_diskio.c **** #endif
+  42:FATFS/Target/sd_diskio.c **** 
+  43:FATFS/Target/sd_diskio.c **** #define SD_DEFAULT_BLOCK_SIZE 512
+  44:FATFS/Target/sd_diskio.c **** 
+  45:FATFS/Target/sd_diskio.c **** /*
+  46:FATFS/Target/sd_diskio.c ****  * Depending on the use case, the SD card initialization could be done at the
+  47:FATFS/Target/sd_diskio.c ****  * application level: if it is the case define the flag below to disable
+  48:FATFS/Target/sd_diskio.c ****  * the BSP_SD_Init() call in the SD_Initialize() and add a call to
+  49:FATFS/Target/sd_diskio.c ****  * BSP_SD_Init() elsewhere in the application.
+  50:FATFS/Target/sd_diskio.c ****  */
+  51:FATFS/Target/sd_diskio.c **** /* USER CODE BEGIN disableSDInit */
+  52:FATFS/Target/sd_diskio.c **** /* #define DISABLE_SD_INIT */
+  53:FATFS/Target/sd_diskio.c **** /* USER CODE END disableSDInit */
+  54:FATFS/Target/sd_diskio.c **** 
+  55:FATFS/Target/sd_diskio.c **** /* Private variables ---------------------------------------------------------*/
+  56:FATFS/Target/sd_diskio.c **** /* Disk status */
+  57:FATFS/Target/sd_diskio.c **** static volatile DSTATUS Stat = STA_NOINIT;
+  58:FATFS/Target/sd_diskio.c **** 
+  59:FATFS/Target/sd_diskio.c **** /* Private function prototypes -----------------------------------------------*/
+  60:FATFS/Target/sd_diskio.c **** static DSTATUS SD_CheckStatus(BYTE lun);
+  61:FATFS/Target/sd_diskio.c **** DSTATUS SD_initialize (BYTE);
+  62:FATFS/Target/sd_diskio.c **** DSTATUS SD_status (BYTE);
+  63:FATFS/Target/sd_diskio.c **** DRESULT SD_read (BYTE, BYTE*, DWORD, UINT);
+  64:FATFS/Target/sd_diskio.c **** #if _USE_WRITE == 1
+  65:FATFS/Target/sd_diskio.c **** DRESULT SD_write (BYTE, const BYTE*, DWORD, UINT);
+  66:FATFS/Target/sd_diskio.c **** #endif /* _USE_WRITE == 1 */
+  67:FATFS/Target/sd_diskio.c **** #if _USE_IOCTL == 1
+  68:FATFS/Target/sd_diskio.c **** DRESULT SD_ioctl (BYTE, BYTE, void*);
+  69:FATFS/Target/sd_diskio.c **** #endif  /* _USE_IOCTL == 1 */
+  70:FATFS/Target/sd_diskio.c **** 
+  71:FATFS/Target/sd_diskio.c **** const Diskio_drvTypeDef  SD_Driver =
+  72:FATFS/Target/sd_diskio.c **** {
+  73:FATFS/Target/sd_diskio.c ****   SD_initialize,
+  74:FATFS/Target/sd_diskio.c ****   SD_status,
+  75:FATFS/Target/sd_diskio.c ****   SD_read,
+  76:FATFS/Target/sd_diskio.c **** #if  _USE_WRITE == 1
+  77:FATFS/Target/sd_diskio.c ****   SD_write,
+  78:FATFS/Target/sd_diskio.c **** #endif /* _USE_WRITE == 1 */
+  79:FATFS/Target/sd_diskio.c **** 
+  80:FATFS/Target/sd_diskio.c **** #if  _USE_IOCTL == 1
+  81:FATFS/Target/sd_diskio.c ****   SD_ioctl,
+  82:FATFS/Target/sd_diskio.c **** #endif /* _USE_IOCTL == 1 */
+  83:FATFS/Target/sd_diskio.c **** };
+  84:FATFS/Target/sd_diskio.c **** 
+  85:FATFS/Target/sd_diskio.c **** /* USER CODE BEGIN beforeFunctionSection */
+  86:FATFS/Target/sd_diskio.c **** /* can be used to modify / undefine following code or add new code */
+  87:FATFS/Target/sd_diskio.c **** /* USER CODE END beforeFunctionSection */
+  88:FATFS/Target/sd_diskio.c **** 
+  89:FATFS/Target/sd_diskio.c **** /* Private functions ---------------------------------------------------------*/
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 3
+
+
+  90:FATFS/Target/sd_diskio.c **** 
+  91:FATFS/Target/sd_diskio.c **** static DSTATUS SD_CheckStatus(BYTE lun)
+  92:FATFS/Target/sd_diskio.c **** {
+  27              		.loc 1 92 0
+  28              		.cfi_startproc
+  29              		@ args = 0, pretend = 0, frame = 0
+  30              		@ frame_needed = 0, uses_anonymous_args = 0
+  31              	.LVL0:
+  32 0000 08B5     		push	{r3, lr}
+  33              	.LCFI0:
+  34              		.cfi_def_cfa_offset 8
+  35              		.cfi_offset 3, -8
+  36              		.cfi_offset 14, -4
+  93:FATFS/Target/sd_diskio.c ****   Stat = STA_NOINIT;
+  37              		.loc 1 93 0
+  38 0002 074B     		ldr	r3, .L4
+  39 0004 0122     		movs	r2, #1
+  40 0006 1A70     		strb	r2, [r3]
+  94:FATFS/Target/sd_diskio.c **** 
+  95:FATFS/Target/sd_diskio.c ****   if(BSP_SD_GetCardState() == MSD_OK)
+  41              		.loc 1 95 0
+  42 0008 FFF7FEFF 		bl	BSP_SD_GetCardState
+  43              	.LVL1:
+  44 000c 20B9     		cbnz	r0, .L2
+  96:FATFS/Target/sd_diskio.c ****   {
+  97:FATFS/Target/sd_diskio.c ****     Stat &= ~STA_NOINIT;
+  45              		.loc 1 97 0
+  46 000e 044A     		ldr	r2, .L4
+  47 0010 1378     		ldrb	r3, [r2]	@ zero_extendqisi2
+  48 0012 03F0FE03 		and	r3, r3, #254
+  49 0016 1370     		strb	r3, [r2]
+  50              	.L2:
+  98:FATFS/Target/sd_diskio.c ****   }
+  99:FATFS/Target/sd_diskio.c **** 
+ 100:FATFS/Target/sd_diskio.c ****   return Stat;
+  51              		.loc 1 100 0
+  52 0018 014B     		ldr	r3, .L4
+  53 001a 1878     		ldrb	r0, [r3]	@ zero_extendqisi2
+ 101:FATFS/Target/sd_diskio.c **** }
+  54              		.loc 1 101 0
+  55 001c 08BD     		pop	{r3, pc}
+  56              	.L5:
+  57 001e 00BF     		.align	2
+  58              	.L4:
+  59 0020 00000000 		.word	.LANCHOR0
+  60              		.cfi_endproc
+  61              	.LFE130:
+  63              		.section	.text.SD_initialize,"ax",%progbits
+  64              		.align	1
+  65              		.global	SD_initialize
+  66              		.syntax unified
+  67              		.thumb
+  68              		.thumb_func
+  69              		.fpu fpv4-sp-d16
+  71              	SD_initialize:
+  72              	.LFB131:
+ 102:FATFS/Target/sd_diskio.c **** 
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 4
+
+
+ 103:FATFS/Target/sd_diskio.c **** /**
+ 104:FATFS/Target/sd_diskio.c ****   * @brief  Initializes a Drive
+ 105:FATFS/Target/sd_diskio.c ****   * @param  lun : not used
+ 106:FATFS/Target/sd_diskio.c ****   * @retval DSTATUS: Operation status
+ 107:FATFS/Target/sd_diskio.c ****   */
+ 108:FATFS/Target/sd_diskio.c **** DSTATUS SD_initialize(BYTE lun)
+ 109:FATFS/Target/sd_diskio.c **** {
+  73              		.loc 1 109 0
+  74              		.cfi_startproc
+  75              		@ args = 0, pretend = 0, frame = 0
+  76              		@ frame_needed = 0, uses_anonymous_args = 0
+  77              	.LVL2:
+  78 0000 10B5     		push	{r4, lr}
+  79              	.LCFI1:
+  80              		.cfi_def_cfa_offset 8
+  81              		.cfi_offset 4, -8
+  82              		.cfi_offset 14, -4
+  83 0002 0446     		mov	r4, r0
+ 110:FATFS/Target/sd_diskio.c **** Stat = STA_NOINIT;
+  84              		.loc 1 110 0
+  85 0004 074B     		ldr	r3, .L10
+  86 0006 0122     		movs	r2, #1
+  87 0008 1A70     		strb	r2, [r3]
+ 111:FATFS/Target/sd_diskio.c **** 
+ 112:FATFS/Target/sd_diskio.c **** #if !defined(DISABLE_SD_INIT)
+ 113:FATFS/Target/sd_diskio.c **** 
+ 114:FATFS/Target/sd_diskio.c ****   if(BSP_SD_Init() == MSD_OK)
+  88              		.loc 1 114 0
+  89 000a FFF7FEFF 		bl	BSP_SD_Init
+  90              	.LVL3:
+  91 000e 10B1     		cbz	r0, .L9
+  92              	.L7:
+ 115:FATFS/Target/sd_diskio.c ****   {
+ 116:FATFS/Target/sd_diskio.c ****     Stat = SD_CheckStatus(lun);
+ 117:FATFS/Target/sd_diskio.c ****   }
+ 118:FATFS/Target/sd_diskio.c **** 
+ 119:FATFS/Target/sd_diskio.c **** #else
+ 120:FATFS/Target/sd_diskio.c ****   Stat = SD_CheckStatus(lun);
+ 121:FATFS/Target/sd_diskio.c **** #endif
+ 122:FATFS/Target/sd_diskio.c **** 
+ 123:FATFS/Target/sd_diskio.c ****   return Stat;
+  93              		.loc 1 123 0
+  94 0010 044B     		ldr	r3, .L10
+  95 0012 1878     		ldrb	r0, [r3]	@ zero_extendqisi2
+ 124:FATFS/Target/sd_diskio.c **** }
+  96              		.loc 1 124 0
+  97 0014 10BD     		pop	{r4, pc}
+  98              	.L9:
+ 116:FATFS/Target/sd_diskio.c ****   }
+  99              		.loc 1 116 0
+ 100 0016 2046     		mov	r0, r4
+ 101 0018 FFF7FEFF 		bl	SD_CheckStatus
+ 102              	.LVL4:
+ 103 001c 014B     		ldr	r3, .L10
+ 104 001e 1870     		strb	r0, [r3]
+ 105 0020 F6E7     		b	.L7
+ 106              	.L11:
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 5
+
+
+ 107 0022 00BF     		.align	2
+ 108              	.L10:
+ 109 0024 00000000 		.word	.LANCHOR0
+ 110              		.cfi_endproc
+ 111              	.LFE131:
+ 113              		.section	.text.SD_status,"ax",%progbits
+ 114              		.align	1
+ 115              		.global	SD_status
+ 116              		.syntax unified
+ 117              		.thumb
+ 118              		.thumb_func
+ 119              		.fpu fpv4-sp-d16
+ 121              	SD_status:
+ 122              	.LFB132:
+ 125:FATFS/Target/sd_diskio.c **** 
+ 126:FATFS/Target/sd_diskio.c **** /**
+ 127:FATFS/Target/sd_diskio.c ****   * @brief  Gets Disk Status
+ 128:FATFS/Target/sd_diskio.c ****   * @param  lun : not used
+ 129:FATFS/Target/sd_diskio.c ****   * @retval DSTATUS: Operation status
+ 130:FATFS/Target/sd_diskio.c ****   */
+ 131:FATFS/Target/sd_diskio.c **** DSTATUS SD_status(BYTE lun)
+ 132:FATFS/Target/sd_diskio.c **** {
+ 123              		.loc 1 132 0
+ 124              		.cfi_startproc
+ 125              		@ args = 0, pretend = 0, frame = 0
+ 126              		@ frame_needed = 0, uses_anonymous_args = 0
+ 127              	.LVL5:
+ 128 0000 08B5     		push	{r3, lr}
+ 129              	.LCFI2:
+ 130              		.cfi_def_cfa_offset 8
+ 131              		.cfi_offset 3, -8
+ 132              		.cfi_offset 14, -4
+ 133:FATFS/Target/sd_diskio.c ****   return SD_CheckStatus(lun);
+ 133              		.loc 1 133 0
+ 134 0002 FFF7FEFF 		bl	SD_CheckStatus
+ 135              	.LVL6:
+ 134:FATFS/Target/sd_diskio.c **** }
+ 136              		.loc 1 134 0
+ 137 0006 08BD     		pop	{r3, pc}
+ 138              		.cfi_endproc
+ 139              	.LFE132:
+ 141              		.section	.text.SD_read,"ax",%progbits
+ 142              		.align	1
+ 143              		.global	SD_read
+ 144              		.syntax unified
+ 145              		.thumb
+ 146              		.thumb_func
+ 147              		.fpu fpv4-sp-d16
+ 149              	SD_read:
+ 150              	.LFB133:
+ 135:FATFS/Target/sd_diskio.c **** 
+ 136:FATFS/Target/sd_diskio.c **** /* USER CODE BEGIN beforeReadSection */
+ 137:FATFS/Target/sd_diskio.c **** /* can be used to modify previous code / undefine following code / add new code */
+ 138:FATFS/Target/sd_diskio.c **** /* USER CODE END beforeReadSection */
+ 139:FATFS/Target/sd_diskio.c **** /**
+ 140:FATFS/Target/sd_diskio.c ****   * @brief  Reads Sector(s)
+ 141:FATFS/Target/sd_diskio.c ****   * @param  lun : not used
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 6
+
+
+ 142:FATFS/Target/sd_diskio.c ****   * @param  *buff: Data buffer to store read data
+ 143:FATFS/Target/sd_diskio.c ****   * @param  sector: Sector address (LBA)
+ 144:FATFS/Target/sd_diskio.c ****   * @param  count: Number of sectors to read (1..128)
+ 145:FATFS/Target/sd_diskio.c ****   * @retval DRESULT: Operation result
+ 146:FATFS/Target/sd_diskio.c ****   */
+ 147:FATFS/Target/sd_diskio.c **** 
+ 148:FATFS/Target/sd_diskio.c **** DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
+ 149:FATFS/Target/sd_diskio.c **** {
+ 151              		.loc 1 149 0
+ 152              		.cfi_startproc
+ 153              		@ args = 0, pretend = 0, frame = 0
+ 154              		@ frame_needed = 0, uses_anonymous_args = 0
+ 155              	.LVL7:
+ 156 0000 08B5     		push	{r3, lr}
+ 157              	.LCFI3:
+ 158              		.cfi_def_cfa_offset 8
+ 159              		.cfi_offset 3, -8
+ 160              		.cfi_offset 14, -4
+ 161 0002 0846     		mov	r0, r1
+ 162              	.LVL8:
+ 163 0004 1146     		mov	r1, r2
+ 164              	.LVL9:
+ 165 0006 1A46     		mov	r2, r3
+ 166              	.LVL10:
+ 150:FATFS/Target/sd_diskio.c ****   DRESULT res = RES_ERROR;
+ 151:FATFS/Target/sd_diskio.c **** 
+ 152:FATFS/Target/sd_diskio.c ****   if(BSP_SD_ReadBlocks((uint32_t*)buff,
+ 167              		.loc 1 152 0
+ 168 0008 4FF0FF33 		mov	r3, #-1
+ 169              	.LVL11:
+ 170 000c FFF7FEFF 		bl	BSP_SD_ReadBlocks
+ 171              	.LVL12:
+ 172 0010 20B9     		cbnz	r0, .L17
+ 173              	.L16:
+ 153:FATFS/Target/sd_diskio.c ****                        (uint32_t) (sector),
+ 154:FATFS/Target/sd_diskio.c ****                        count, SD_TIMEOUT) == MSD_OK)
+ 155:FATFS/Target/sd_diskio.c ****   {
+ 156:FATFS/Target/sd_diskio.c ****     /* wait until the read operation is finished */
+ 157:FATFS/Target/sd_diskio.c ****     while(BSP_SD_GetCardState()!= MSD_OK)
+ 174              		.loc 1 157 0 discriminator 1
+ 175 0012 FFF7FEFF 		bl	BSP_SD_GetCardState
+ 176              	.LVL13:
+ 177 0016 0028     		cmp	r0, #0
+ 178 0018 FBD1     		bne	.L16
+ 179              	.L15:
+ 180              	.LVL14:
+ 158:FATFS/Target/sd_diskio.c ****     {
+ 159:FATFS/Target/sd_diskio.c ****     }
+ 160:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 161:FATFS/Target/sd_diskio.c ****   }
+ 162:FATFS/Target/sd_diskio.c **** 
+ 163:FATFS/Target/sd_diskio.c ****   return res;
+ 164:FATFS/Target/sd_diskio.c **** }
+ 181              		.loc 1 164 0
+ 182 001a 08BD     		pop	{r3, pc}
+ 183              	.LVL15:
+ 184              	.L17:
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 7
+
+
+ 150:FATFS/Target/sd_diskio.c **** 
+ 185              		.loc 1 150 0
+ 186 001c 0120     		movs	r0, #1
+ 187 001e FCE7     		b	.L15
+ 188              		.cfi_endproc
+ 189              	.LFE133:
+ 191              		.section	.text.SD_write,"ax",%progbits
+ 192              		.align	1
+ 193              		.global	SD_write
+ 194              		.syntax unified
+ 195              		.thumb
+ 196              		.thumb_func
+ 197              		.fpu fpv4-sp-d16
+ 199              	SD_write:
+ 200              	.LFB134:
+ 165:FATFS/Target/sd_diskio.c **** 
+ 166:FATFS/Target/sd_diskio.c **** /* USER CODE BEGIN beforeWriteSection */
+ 167:FATFS/Target/sd_diskio.c **** /* can be used to modify previous code / undefine following code / add new code */
+ 168:FATFS/Target/sd_diskio.c **** /* USER CODE END beforeWriteSection */
+ 169:FATFS/Target/sd_diskio.c **** /**
+ 170:FATFS/Target/sd_diskio.c ****   * @brief  Writes Sector(s)
+ 171:FATFS/Target/sd_diskio.c ****   * @param  lun : not used
+ 172:FATFS/Target/sd_diskio.c ****   * @param  *buff: Data to be written
+ 173:FATFS/Target/sd_diskio.c ****   * @param  sector: Sector address (LBA)
+ 174:FATFS/Target/sd_diskio.c ****   * @param  count: Number of sectors to write (1..128)
+ 175:FATFS/Target/sd_diskio.c ****   * @retval DRESULT: Operation result
+ 176:FATFS/Target/sd_diskio.c ****   */
+ 177:FATFS/Target/sd_diskio.c **** #if _USE_WRITE == 1
+ 178:FATFS/Target/sd_diskio.c **** 
+ 179:FATFS/Target/sd_diskio.c **** DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
+ 180:FATFS/Target/sd_diskio.c **** {
+ 201              		.loc 1 180 0
+ 202              		.cfi_startproc
+ 203              		@ args = 0, pretend = 0, frame = 0
+ 204              		@ frame_needed = 0, uses_anonymous_args = 0
+ 205              	.LVL16:
+ 206 0000 08B5     		push	{r3, lr}
+ 207              	.LCFI4:
+ 208              		.cfi_def_cfa_offset 8
+ 209              		.cfi_offset 3, -8
+ 210              		.cfi_offset 14, -4
+ 211 0002 0846     		mov	r0, r1
+ 212              	.LVL17:
+ 213 0004 1146     		mov	r1, r2
+ 214              	.LVL18:
+ 215 0006 1A46     		mov	r2, r3
+ 216              	.LVL19:
+ 181:FATFS/Target/sd_diskio.c ****   DRESULT res = RES_ERROR;
+ 182:FATFS/Target/sd_diskio.c **** 
+ 183:FATFS/Target/sd_diskio.c ****   if(BSP_SD_WriteBlocks((uint32_t*)buff,
+ 217              		.loc 1 183 0
+ 218 0008 4FF0FF33 		mov	r3, #-1
+ 219              	.LVL20:
+ 220 000c FFF7FEFF 		bl	BSP_SD_WriteBlocks
+ 221              	.LVL21:
+ 222 0010 20B9     		cbnz	r0, .L22
+ 223              	.L21:
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 8
+
+
+ 184:FATFS/Target/sd_diskio.c ****                         (uint32_t)(sector),
+ 185:FATFS/Target/sd_diskio.c ****                         count, SD_TIMEOUT) == MSD_OK)
+ 186:FATFS/Target/sd_diskio.c ****   {
+ 187:FATFS/Target/sd_diskio.c **** 	/* wait until the Write operation is finished */
+ 188:FATFS/Target/sd_diskio.c ****     while(BSP_SD_GetCardState() != MSD_OK)
+ 224              		.loc 1 188 0 discriminator 1
+ 225 0012 FFF7FEFF 		bl	BSP_SD_GetCardState
+ 226              	.LVL22:
+ 227 0016 0028     		cmp	r0, #0
+ 228 0018 FBD1     		bne	.L21
+ 229              	.L20:
+ 230              	.LVL23:
+ 189:FATFS/Target/sd_diskio.c ****     {
+ 190:FATFS/Target/sd_diskio.c ****     }
+ 191:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 192:FATFS/Target/sd_diskio.c ****   }
+ 193:FATFS/Target/sd_diskio.c **** 
+ 194:FATFS/Target/sd_diskio.c ****   return res;
+ 195:FATFS/Target/sd_diskio.c **** }
+ 231              		.loc 1 195 0
+ 232 001a 08BD     		pop	{r3, pc}
+ 233              	.LVL24:
+ 234              	.L22:
+ 181:FATFS/Target/sd_diskio.c **** 
+ 235              		.loc 1 181 0
+ 236 001c 0120     		movs	r0, #1
+ 237 001e FCE7     		b	.L20
+ 238              		.cfi_endproc
+ 239              	.LFE134:
+ 241              		.section	.text.SD_ioctl,"ax",%progbits
+ 242              		.align	1
+ 243              		.global	SD_ioctl
+ 244              		.syntax unified
+ 245              		.thumb
+ 246              		.thumb_func
+ 247              		.fpu fpv4-sp-d16
+ 249              	SD_ioctl:
+ 250              	.LFB135:
+ 196:FATFS/Target/sd_diskio.c **** #endif /* _USE_WRITE == 1 */
+ 197:FATFS/Target/sd_diskio.c **** 
+ 198:FATFS/Target/sd_diskio.c **** /* USER CODE BEGIN beforeIoctlSection */
+ 199:FATFS/Target/sd_diskio.c **** /* can be used to modify previous code / undefine following code / add new code */
+ 200:FATFS/Target/sd_diskio.c **** /* USER CODE END beforeIoctlSection */
+ 201:FATFS/Target/sd_diskio.c **** /**
+ 202:FATFS/Target/sd_diskio.c ****   * @brief  I/O control operation
+ 203:FATFS/Target/sd_diskio.c ****   * @param  lun : not used
+ 204:FATFS/Target/sd_diskio.c ****   * @param  cmd: Control code
+ 205:FATFS/Target/sd_diskio.c ****   * @param  *buff: Buffer to send/receive control data
+ 206:FATFS/Target/sd_diskio.c ****   * @retval DRESULT: Operation result
+ 207:FATFS/Target/sd_diskio.c ****   */
+ 208:FATFS/Target/sd_diskio.c **** #if _USE_IOCTL == 1
+ 209:FATFS/Target/sd_diskio.c **** DRESULT SD_ioctl(BYTE lun, BYTE cmd, void *buff)
+ 210:FATFS/Target/sd_diskio.c **** {
+ 251              		.loc 1 210 0
+ 252              		.cfi_startproc
+ 253              		@ args = 0, pretend = 0, frame = 32
+ 254              		@ frame_needed = 0, uses_anonymous_args = 0
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 9
+
+
+ 255              	.LVL25:
+ 211:FATFS/Target/sd_diskio.c ****   DRESULT res = RES_ERROR;
+ 212:FATFS/Target/sd_diskio.c ****   BSP_SD_CardInfo CardInfo;
+ 213:FATFS/Target/sd_diskio.c **** 
+ 214:FATFS/Target/sd_diskio.c ****   if (Stat & STA_NOINIT) return RES_NOTRDY;
+ 256              		.loc 1 214 0
+ 257 0000 154B     		ldr	r3, .L37
+ 258 0002 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 259 0004 13F0010F 		tst	r3, #1
+ 260 0008 21D1     		bne	.L31
+ 210:FATFS/Target/sd_diskio.c ****   DRESULT res = RES_ERROR;
+ 261              		.loc 1 210 0
+ 262 000a 10B5     		push	{r4, lr}
+ 263              	.LCFI5:
+ 264              		.cfi_def_cfa_offset 8
+ 265              		.cfi_offset 4, -8
+ 266              		.cfi_offset 14, -4
+ 267 000c 88B0     		sub	sp, sp, #32
+ 268              	.LCFI6:
+ 269              		.cfi_def_cfa_offset 40
+ 270 000e 1446     		mov	r4, r2
+ 215:FATFS/Target/sd_diskio.c **** 
+ 216:FATFS/Target/sd_diskio.c ****   switch (cmd)
+ 271              		.loc 1 216 0
+ 272 0010 0329     		cmp	r1, #3
+ 273 0012 1ED8     		bhi	.L32
+ 274 0014 DFE801F0 		tbb	[pc, r1]
+ 275              	.L27:
+ 276 0018 02       		.byte	(.L26-.L27)/2
+ 277 0019 05       		.byte	(.L28-.L27)/2
+ 278 001a 0C       		.byte	(.L29-.L27)/2
+ 279 001b 13       		.byte	(.L30-.L27)/2
+ 280              		.p2align 1
+ 281              	.L26:
+ 217:FATFS/Target/sd_diskio.c ****   {
+ 218:FATFS/Target/sd_diskio.c ****   /* Make sure that no pending write process */
+ 219:FATFS/Target/sd_diskio.c ****   case CTRL_SYNC :
+ 220:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 282              		.loc 1 220 0
+ 283 001c 0020     		movs	r0, #0
+ 284              	.LVL26:
+ 285              	.L25:
+ 221:FATFS/Target/sd_diskio.c ****     break;
+ 222:FATFS/Target/sd_diskio.c **** 
+ 223:FATFS/Target/sd_diskio.c ****   /* Get number of sectors on the disk (DWORD) */
+ 224:FATFS/Target/sd_diskio.c ****   case GET_SECTOR_COUNT :
+ 225:FATFS/Target/sd_diskio.c ****     BSP_SD_GetCardInfo(&CardInfo);
+ 226:FATFS/Target/sd_diskio.c ****     *(DWORD*)buff = CardInfo.LogBlockNbr;
+ 227:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 228:FATFS/Target/sd_diskio.c ****     break;
+ 229:FATFS/Target/sd_diskio.c **** 
+ 230:FATFS/Target/sd_diskio.c ****   /* Get R/W sector size (WORD) */
+ 231:FATFS/Target/sd_diskio.c ****   case GET_SECTOR_SIZE :
+ 232:FATFS/Target/sd_diskio.c ****     BSP_SD_GetCardInfo(&CardInfo);
+ 233:FATFS/Target/sd_diskio.c ****     *(WORD*)buff = CardInfo.LogBlockSize;
+ 234:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 235:FATFS/Target/sd_diskio.c ****     break;
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 10
+
+
+ 236:FATFS/Target/sd_diskio.c **** 
+ 237:FATFS/Target/sd_diskio.c ****   /* Get erase block size in unit of sector (DWORD) */
+ 238:FATFS/Target/sd_diskio.c ****   case GET_BLOCK_SIZE :
+ 239:FATFS/Target/sd_diskio.c ****     BSP_SD_GetCardInfo(&CardInfo);
+ 240:FATFS/Target/sd_diskio.c ****     *(DWORD*)buff = CardInfo.LogBlockSize / SD_DEFAULT_BLOCK_SIZE;
+ 241:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 242:FATFS/Target/sd_diskio.c ****     break;
+ 243:FATFS/Target/sd_diskio.c **** 
+ 244:FATFS/Target/sd_diskio.c ****   default:
+ 245:FATFS/Target/sd_diskio.c ****     res = RES_PARERR;
+ 246:FATFS/Target/sd_diskio.c ****   }
+ 247:FATFS/Target/sd_diskio.c **** 
+ 248:FATFS/Target/sd_diskio.c ****   return res;
+ 249:FATFS/Target/sd_diskio.c **** }
+ 286              		.loc 1 249 0
+ 287 001e 08B0     		add	sp, sp, #32
+ 288              	.LCFI7:
+ 289              		.cfi_remember_state
+ 290              		.cfi_def_cfa_offset 8
+ 291              		@ sp needed
+ 292 0020 10BD     		pop	{r4, pc}
+ 293              	.LVL27:
+ 294              	.L28:
+ 295              	.LCFI8:
+ 296              		.cfi_restore_state
+ 225:FATFS/Target/sd_diskio.c ****     *(DWORD*)buff = CardInfo.LogBlockNbr;
+ 297              		.loc 1 225 0
+ 298 0022 6846     		mov	r0, sp
+ 299              	.LVL28:
+ 300 0024 FFF7FEFF 		bl	BSP_SD_GetCardInfo
+ 301              	.LVL29:
+ 226:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 302              		.loc 1 226 0
+ 303 0028 069B     		ldr	r3, [sp, #24]
+ 304 002a 2360     		str	r3, [r4]
+ 305              	.LVL30:
+ 227:FATFS/Target/sd_diskio.c ****     break;
+ 306              		.loc 1 227 0
+ 307 002c 0020     		movs	r0, #0
+ 228:FATFS/Target/sd_diskio.c **** 
+ 308              		.loc 1 228 0
+ 309 002e F6E7     		b	.L25
+ 310              	.LVL31:
+ 311              	.L29:
+ 232:FATFS/Target/sd_diskio.c ****     *(WORD*)buff = CardInfo.LogBlockSize;
+ 312              		.loc 1 232 0
+ 313 0030 6846     		mov	r0, sp
+ 314              	.LVL32:
+ 315 0032 FFF7FEFF 		bl	BSP_SD_GetCardInfo
+ 316              	.LVL33:
+ 233:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 317              		.loc 1 233 0
+ 318 0036 079B     		ldr	r3, [sp, #28]
+ 319 0038 2380     		strh	r3, [r4]	@ movhi
+ 320              	.LVL34:
+ 234:FATFS/Target/sd_diskio.c ****     break;
+ 321              		.loc 1 234 0
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 11
+
+
+ 322 003a 0020     		movs	r0, #0
+ 235:FATFS/Target/sd_diskio.c **** 
+ 323              		.loc 1 235 0
+ 324 003c EFE7     		b	.L25
+ 325              	.LVL35:
+ 326              	.L30:
+ 239:FATFS/Target/sd_diskio.c ****     *(DWORD*)buff = CardInfo.LogBlockSize / SD_DEFAULT_BLOCK_SIZE;
+ 327              		.loc 1 239 0
+ 328 003e 6846     		mov	r0, sp
+ 329              	.LVL36:
+ 330 0040 FFF7FEFF 		bl	BSP_SD_GetCardInfo
+ 331              	.LVL37:
+ 240:FATFS/Target/sd_diskio.c ****     res = RES_OK;
+ 332              		.loc 1 240 0
+ 333 0044 079B     		ldr	r3, [sp, #28]
+ 334 0046 5B0A     		lsrs	r3, r3, #9
+ 335 0048 2360     		str	r3, [r4]
+ 336              	.LVL38:
+ 241:FATFS/Target/sd_diskio.c ****     break;
+ 337              		.loc 1 241 0
+ 338 004a 0020     		movs	r0, #0
+ 242:FATFS/Target/sd_diskio.c **** 
+ 339              		.loc 1 242 0
+ 340 004c E7E7     		b	.L25
+ 341              	.LVL39:
+ 342              	.L31:
+ 343              	.LCFI9:
+ 344              		.cfi_def_cfa_offset 0
+ 345              		.cfi_restore 4
+ 346              		.cfi_restore 14
+ 214:FATFS/Target/sd_diskio.c **** 
+ 347              		.loc 1 214 0
+ 348 004e 0320     		movs	r0, #3
+ 349              	.LVL40:
+ 350              		.loc 1 249 0
+ 351 0050 7047     		bx	lr
+ 352              	.LVL41:
+ 353              	.L32:
+ 245:FATFS/Target/sd_diskio.c ****   }
+ 354              		.loc 1 245 0
+ 355 0052 0420     		movs	r0, #4
+ 356              	.LVL42:
+ 357 0054 E3E7     		b	.L25
+ 358              	.L38:
+ 359 0056 00BF     		.align	2
+ 360              	.L37:
+ 361 0058 00000000 		.word	.LANCHOR0
+ 362              		.cfi_endproc
+ 363              	.LFE135:
+ 365              		.global	SD_Driver
+ 366              		.section	.data.Stat,"aw",%progbits
+ 367              		.set	.LANCHOR0,. + 0
+ 370              	Stat:
+ 371 0000 01       		.byte	1
+ 372              		.section	.rodata.SD_Driver,"a",%progbits
+ 373              		.align	2
+ 376              	SD_Driver:
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 12
+
+
+ 377 0000 00000000 		.word	SD_initialize
+ 378 0004 00000000 		.word	SD_status
+ 379 0008 00000000 		.word	SD_read
+ 380 000c 00000000 		.word	SD_write
+ 381 0010 00000000 		.word	SD_ioctl
+ 382              		.text
+ 383              	.Letext0:
+ 384              		.file 2 "Middlewares/Third_Party/FatFs/src/integer.h"
+ 385              		.file 3 "Middlewares/Third_Party/FatFs/src/diskio.h"
+ 386              		.file 4 "c:\\touchgfx\\4.17.0\\env\\mingw\\msys\\1.0\\gnu-arm-gcc\\arm-none-eabi\\include\\machine
+ 387              		.file 5 "c:\\touchgfx\\4.17.0\\env\\mingw\\msys\\1.0\\gnu-arm-gcc\\arm-none-eabi\\include\\sys\\_s
+ 388              		.file 6 "Drivers/CMSIS/Include/core_cm4.h"
+ 389              		.file 7 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h"
+ 390              		.file 8 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h"
+ 391              		.file 9 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h"
+ 392              		.file 10 "c:\\touchgfx\\4.17.0\\env\\mingw\\msys\\1.0\\gnu-arm-gcc\\arm-none-eabi\\include\\sys\\l
+ 393              		.file 11 "c:\\touchgfx\\4.17.0\\env\\mingw\\msys\\1.0\\gnu-arm-gcc\\arm-none-eabi\\include\\sys\\_
+ 394              		.file 12 "c:\\touchgfx\\4.17.0\\env\\mingw\\msys\\1.0\\gnu-arm-gcc\\lib\\gcc\\arm-none-eabi\\7.3.1
+ 395              		.file 13 "c:\\touchgfx\\4.17.0\\env\\mingw\\msys\\1.0\\gnu-arm-gcc\\arm-none-eabi\\include\\sys\\r
+ 396              		.file 14 "c:\\touchgfx\\4.17.0\\env\\mingw\\msys\\1.0\\gnu-arm-gcc\\arm-none-eabi\\include\\stdlib
+ 397              		.file 15 "Middlewares/Third_Party/FatFs/src/ff_gen_drv.h"
+ 398              		.file 16 "FATFS/Target/sd_diskio.h"
+ 399              		.file 17 "FATFS/Target/bsp_driver_sd.h"
+ARM GAS  C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s 			page 13
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 sd_diskio.c
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:18     .text.SD_CheckStatus:00000000 $t
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:24     .text.SD_CheckStatus:00000000 SD_CheckStatus
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:59     .text.SD_CheckStatus:00000020 $d
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:64     .text.SD_initialize:00000000 $t
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:71     .text.SD_initialize:00000000 SD_initialize
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:109    .text.SD_initialize:00000024 $d
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:114    .text.SD_status:00000000 $t
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:121    .text.SD_status:00000000 SD_status
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:142    .text.SD_read:00000000 $t
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:149    .text.SD_read:00000000 SD_read
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:192    .text.SD_write:00000000 $t
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:199    .text.SD_write:00000000 SD_write
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:242    .text.SD_ioctl:00000000 $t
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:249    .text.SD_ioctl:00000000 SD_ioctl
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:276    .text.SD_ioctl:00000018 $d
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:280    .text.SD_ioctl:0000001c $t
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:361    .text.SD_ioctl:00000058 $d
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:376    .rodata.SD_Driver:00000000 SD_Driver
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:370    .data.Stat:00000000 Stat
+C:\Users\Cihat\AppData\Local\Temp\ccv4v8KF.s:373    .rodata.SD_Driver:00000000 $d
+
+UNDEFINED SYMBOLS
+BSP_SD_GetCardState
+BSP_SD_Init
+BSP_SD_ReadBlocks
+BSP_SD_WriteBlocks
+BSP_SD_GetCardInfo
