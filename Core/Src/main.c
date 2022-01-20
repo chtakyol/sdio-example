@@ -91,7 +91,12 @@ int main(void)
   MX_SDIO_SD_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
-
+  FATFS myFATAFS;
+  if (f_mount(&myFATAFS, SDPath, 1) == HAL_OK)
+  {
+    // HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_6);
+    HAL_GPIO_WritePin(GPIOG, GPIO_PIN_6, GPIO_PIN_RESET);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
