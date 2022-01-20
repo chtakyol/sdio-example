@@ -8,20 +8,21 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
+    - name: arm-none-eabi-gcc
+      uses: fiam/arm-none-eabi-gcc@v1
+      with:
+        release: '9-2020-q2'
+
     - uses: actions/checkout@v2
-    
-    - name: configure
-      run: ./configure
       
     - name: Install dependencies
       run: make
       
-    - name: Run check
-      run: make check
+    # - name: Run check
+    #   run: make check
       
-    - name: Run distcheck
-      run: make distcheck
+    # - name: Run distcheck
+    #   run: make distcheck
