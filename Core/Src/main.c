@@ -97,6 +97,7 @@ int main(void)
     // HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_6);
     HAL_GPIO_WritePin(GPIOG, GPIO_PIN_6, GPIO_PIN_RESET);
   }
+  // this is some code changes.
   /* USER CODE END 2 */
 
   /* Infinite loop */
